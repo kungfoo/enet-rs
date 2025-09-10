@@ -1,7 +1,8 @@
 use enet_sys::{
-    enet_packet_create, enet_packet_destroy, ENetPacket,
     _ENetPacketFlag_ENET_PACKET_FLAG_NO_ALLOCATE, _ENetPacketFlag_ENET_PACKET_FLAG_RELIABLE,
-    _ENetPacketFlag_ENET_PACKET_FLAG_UNSEQUENCED,
+    _ENetPacketFlag_ENET_PACKET_FLAG_UNRELIABLE_FRAGMENT,
+    _ENetPacketFlag_ENET_PACKET_FLAG_UNSEQUENCED, ENetPacket, enet_packet_create,
+    enet_packet_destroy,
 };
 
 use crate::Error;
@@ -21,6 +22,8 @@ pub enum PacketMode {
     UnreliableSequenced,
     /// The packet will be sent unreliably and unsequenced.
     UnreliableUnsequenced,
+    /// The packet will be sent unreliably, unsequenced and in case it exceeds the MTU it will be fragmented using unreliable sends.
+    UnreliableUnsequencedUnreliablyFragmented,
     /// The packet will be sent reliably and sequenced with other reliable
     /// packets.
     ReliableSequenced,
@@ -32,6 +35,7 @@ impl PacketMode {
         match self {
             PacketMode::UnreliableSequenced => false,
             PacketMode::UnreliableUnsequenced => false,
+            PacketMode::UnreliableUnsequencedUnreliablyFragmented => false,
             PacketMode::ReliableSequenced => true,
         }
     }
@@ -41,6 +45,7 @@ impl PacketMode {
         match self {
             PacketMode::UnreliableSequenced => true,
             PacketMode::UnreliableUnsequenced => false,
+            PacketMode::UnreliableUnsequencedUnreliablyFragmented => false,
             PacketMode::ReliableSequenced => true,
         }
     }
@@ -48,10 +53,12 @@ impl PacketMode {
     fn to_sys_flags(self) -> u32 {
         match self {
             PacketMode::UnreliableSequenced => 0,
-            PacketMode::UnreliableUnsequenced => {
-                _ENetPacketFlag_ENET_PACKET_FLAG_UNSEQUENCED as u32
+            PacketMode::UnreliableUnsequenced => _ENetPacketFlag_ENET_PACKET_FLAG_UNSEQUENCED,
+            PacketMode::ReliableSequenced => _ENetPacketFlag_ENET_PACKET_FLAG_RELIABLE,
+            PacketMode::UnreliableUnsequencedUnreliablyFragmented => {
+                _ENetPacketFlag_ENET_PACKET_FLAG_UNSEQUENCED
+                    | _ENetPacketFlag_ENET_PACKET_FLAG_UNRELIABLE_FRAGMENT
             }
-            PacketMode::ReliableSequenced => _ENetPacketFlag_ENET_PACKET_FLAG_RELIABLE as u32,
         }
     }
 }
@@ -64,13 +71,7 @@ impl Packet {
         let res = unsafe {
             enet_packet_create(
                 data.as_ptr() as *const _,
-                // This conversion should basically never fail.
-                // It may only fail if size_t and usize are of
-                // different size and the data.len() is very large,
-                // which is only possible on niche platforms.
-                data.len()
-                    .try_into()
-                    .expect("packet data too long for ENet (`size_t`)"),
+                data.len(),
                 mode.to_sys_flags() | _ENetPacketFlag_ENET_PACKET_FLAG_NO_ALLOCATE,
             )
         };
@@ -104,17 +105,7 @@ impl Packet {
 
     /// Returns a reference to the bytes inside this packet.
     pub fn data(&self) -> &[u8] {
-        unsafe {
-            std::slice::from_raw_parts(
-                (*self.inner).data,
-                (*self.inner)
-                    .dataLength
-                    .try_into()
-                    // this can only happen when a too long packet is received on a 32-bit system I
-                    // think
-                    .expect("packet data too long for an `usize`"),
-            )
-        }
+        unsafe { std::slice::from_raw_parts((*self.inner).data, (*self.inner).dataLength) }
     }
 }
 
@@ -129,7 +120,7 @@ impl Drop for Packet {
 unsafe extern "C" fn packet_free_callback(packet: *mut ENetPacket) {
     drop(Vec::<u8>::from_raw_parts(
         (*packet).data,
-        (*packet).dataLength as usize,
+        (*packet).dataLength,
         (*packet).userData as usize,
     ));
 }

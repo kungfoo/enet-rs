@@ -1,9 +1,9 @@
 use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc, time::Duration};
 
 use enet_sys::{
-    enet_host_bandwidth_limit, enet_host_channel_limit, enet_host_check_events, enet_host_connect,
-    enet_host_destroy, enet_host_flush, enet_host_service, ENetEvent, ENetHost, ENetPeer,
-    ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT,
+    ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT, ENetEvent, ENetHost, ENetPeer, enet_host_bandwidth_limit,
+    enet_host_channel_limit, enet_host_check_events, enet_host_connect, enet_host_destroy,
+    enet_host_flush, enet_host_service,
 };
 
 use crate::{Address, EnetKeepAlive, Error, Event, Peer, PeerID};
@@ -23,19 +23,19 @@ pub enum ChannelLimit {
     /// Maximum limit on the number of channels
     Maximum,
     /// Channel limit
-    Limited(enet_sys::size_t),
+    Limited(usize),
 }
 
 impl ChannelLimit {
-    pub(in crate) fn to_enet_val(self) -> enet_sys::size_t {
+    pub(crate) fn to_enet_val(self) -> usize {
         match self {
             ChannelLimit::Maximum => 0,
             ChannelLimit::Limited(l) => l,
         }
     }
 
-    fn from_enet_val(enet_val: enet_sys::size_t) -> ChannelLimit {
-        const MAX_COUNT: enet_sys::size_t = ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT as enet_sys::size_t;
+    fn from_enet_val(enet_val: usize) -> ChannelLimit {
+        const MAX_COUNT: usize = ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT as usize;
         match enet_val {
             MAX_COUNT => ChannelLimit::Maximum,
             0 => panic!("ChannelLimit::from_enet_usize: got 0"),
@@ -45,7 +45,7 @@ impl ChannelLimit {
 }
 
 impl BandwidthLimit {
-    pub(in crate) fn to_enet_u32(self) -> u32 {
+    pub(crate) fn to_enet_u32(self) -> u32 {
         match self {
             BandwidthLimit::Unlimited => 0,
             BandwidthLimit::Limited(l) => l,
@@ -65,7 +65,7 @@ pub struct Host<T> {
 }
 
 impl<T> Host<T> {
-    pub(in crate) fn new(_keep_alive: Arc<EnetKeepAlive>, inner: *mut ENetHost) -> Host<T> {
+    pub(crate) fn new(_keep_alive: Arc<EnetKeepAlive>, inner: *mut ENetHost) -> Host<T> {
         assert!(!inner.is_null());
 
         Host {
@@ -128,7 +128,7 @@ impl<T> Host<T> {
     }
 
     /// Returns the number of peers allocated for this `Host`.
-    pub fn peer_count(&self) -> enet_sys::size_t {
+    pub fn peer_count(&self) -> usize {
         unsafe { (*self.inner).peerCount }
     }
 
@@ -173,34 +173,18 @@ impl<T> Host<T> {
 
     /// Returns an iterator over all peers connected to this `Host`.
     pub fn peers_mut(&mut self) -> impl Iterator<Item = &'_ mut Peer<T>> {
-        let peers = unsafe {
-            std::slice::from_raw_parts_mut(
-                (*self.inner).peers,
-                // This conversion should basically never fail.
-                // It may only fail if size_t and usize are of
-                // different size and the peerCount is very large,
-                // which is only possible on niche platforms.
-                (*self.inner).peerCount.try_into().unwrap(),
-            )
-        };
+        let peers =
+            unsafe { std::slice::from_raw_parts_mut((*self.inner).peers, (*self.inner).peerCount) };
 
         peers.iter_mut().map(|peer| Peer::new_mut(&mut *peer))
     }
 
     /// Returns an iterator over all peers connected to this `Host`.
     pub fn peers(&self) -> impl Iterator<Item = &'_ Peer<T>> {
-        let peers = unsafe {
-            std::slice::from_raw_parts(
-                (*self.inner).peers,
-                // This conversion should basically never fail.
-                // It may only fail if size_t and usize are of
-                // different size and the peerCount is very large,
-                // which is only possible on niche platforms.
-                (*self.inner).peerCount.try_into().unwrap(),
-            )
-        };
+        let peers =
+            unsafe { std::slice::from_raw_parts((*self.inner).peers, (*self.inner).peerCount) };
 
-        peers.iter().map(|peer| Peer::new(&*peer))
+        peers.iter().map(|peer| Peer::new(peer))
     }
 
     fn process_event(&'_ mut self, sys_event: ENetEvent) -> Option<Event<'_, T>> {
@@ -262,7 +246,7 @@ impl<T> Host<T> {
     pub fn connect(
         &mut self,
         address: &Address,
-        channel_count: enet_sys::size_t,
+        channel_count: usize,
         user_data: u32,
     ) -> Result<(&mut Peer<T>, PeerID), Error> {
         let res: *mut ENetPeer = unsafe {
