@@ -5,15 +5,15 @@ use std::{
 };
 
 use enet_sys::{
-    enet_peer_disconnect, enet_peer_disconnect_later, enet_peer_disconnect_now, enet_peer_receive,
-    enet_peer_reset, enet_peer_send, ENetPeer, _ENetPeerState,
-    _ENetPeerState_ENET_PEER_STATE_ACKNOWLEDGING_CONNECT,
+    _ENetPeerState, _ENetPeerState_ENET_PEER_STATE_ACKNOWLEDGING_CONNECT,
     _ENetPeerState_ENET_PEER_STATE_ACKNOWLEDGING_DISCONNECT,
     _ENetPeerState_ENET_PEER_STATE_CONNECTED, _ENetPeerState_ENET_PEER_STATE_CONNECTING,
     _ENetPeerState_ENET_PEER_STATE_CONNECTION_PENDING,
     _ENetPeerState_ENET_PEER_STATE_CONNECTION_SUCCEEDED,
-    _ENetPeerState_ENET_PEER_STATE_DISCONNECTED, _ENetPeerState_ENET_PEER_STATE_DISCONNECTING,
-    _ENetPeerState_ENET_PEER_STATE_DISCONNECT_LATER, _ENetPeerState_ENET_PEER_STATE_ZOMBIE,
+    _ENetPeerState_ENET_PEER_STATE_DISCONNECT_LATER, _ENetPeerState_ENET_PEER_STATE_DISCONNECTED,
+    _ENetPeerState_ENET_PEER_STATE_DISCONNECTING, _ENetPeerState_ENET_PEER_STATE_ZOMBIE, ENetPeer,
+    enet_packet_destroy, enet_peer_disconnect, enet_peer_disconnect_later,
+    enet_peer_disconnect_now, enet_peer_receive, enet_peer_reset, enet_peer_send,
 };
 
 use crate::{Address, Error, Packet};
@@ -83,7 +83,7 @@ where
     }
 
     /// Returns the amout of channels allocated for this `Peer`.
-    pub fn channel_count(&self) -> enet_sys::size_t {
+    pub fn channel_count(&self) -> usize {
         self.inner.channelCount
     }
 
@@ -202,13 +202,16 @@ where
     ///
     /// Actual sending will happen during `Host::service`.
     pub fn send_packet(&mut self, packet: Packet, channel_id: u8) -> Result<(), Error> {
-        let res =
-            unsafe { enet_peer_send(&mut self.inner as *mut _, channel_id, packet.into_inner()) };
+        let packet = packet.into_inner();
+        let res = unsafe { enet_peer_send(&mut self.inner as *mut _, channel_id, packet) };
 
         match res {
             r if r > 0 => panic!("unexpected res: {}", r),
             0 => Ok(()),
-            r if r < 0 => Err(Error(r)),
+            r if r < 0 => {
+                unsafe { enet_packet_destroy(packet) };
+                Err(Error(r))
+            }
             _ => panic!("unreachable"),
         }
     }
