@@ -1,8 +1,8 @@
 use enet_sys::{
-    _ENetPacketFlag_ENET_PACKET_FLAG_NO_ALLOCATE, _ENetPacketFlag_ENET_PACKET_FLAG_RELIABLE,
+    ENetPacket, _ENetPacketFlag_ENET_PACKET_FLAG_NO_ALLOCATE,
+    _ENetPacketFlag_ENET_PACKET_FLAG_RELIABLE,
     _ENetPacketFlag_ENET_PACKET_FLAG_UNRELIABLE_FRAGMENT,
-    _ENetPacketFlag_ENET_PACKET_FLAG_UNSEQUENCED, ENetPacket, enet_packet_create,
-    enet_packet_destroy,
+    _ENetPacketFlag_ENET_PACKET_FLAG_UNSEQUENCED, enet_packet_create, enet_packet_destroy,
 };
 
 use crate::Error;

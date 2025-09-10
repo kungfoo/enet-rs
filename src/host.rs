@@ -1,9 +1,9 @@
 use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc, time::Duration};
 
 use enet_sys::{
-    ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT, ENetEvent, ENetHost, ENetPeer, enet_host_bandwidth_limit,
-    enet_host_channel_limit, enet_host_check_events, enet_host_connect, enet_host_destroy,
-    enet_host_flush, enet_host_service,
+    enet_host_bandwidth_limit, enet_host_channel_limit, enet_host_check_events, enet_host_connect,
+    enet_host_destroy, enet_host_flush, enet_host_service, ENetEvent, ENetHost, ENetPeer,
+    ENET_PROTOCOL_MAXIMUM_CHANNEL_COUNT,
 };
 
 use crate::{Address, EnetKeepAlive, Error, Event, Peer, PeerID};

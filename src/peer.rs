@@ -5,15 +5,16 @@ use std::{
 };
 
 use enet_sys::{
-    _ENetPeerState, _ENetPeerState_ENET_PEER_STATE_ACKNOWLEDGING_CONNECT,
+    ENetPeer, _ENetPeerState, _ENetPeerState_ENET_PEER_STATE_ACKNOWLEDGING_CONNECT,
     _ENetPeerState_ENET_PEER_STATE_ACKNOWLEDGING_DISCONNECT,
     _ENetPeerState_ENET_PEER_STATE_CONNECTED, _ENetPeerState_ENET_PEER_STATE_CONNECTING,
     _ENetPeerState_ENET_PEER_STATE_CONNECTION_PENDING,
     _ENetPeerState_ENET_PEER_STATE_CONNECTION_SUCCEEDED,
-    _ENetPeerState_ENET_PEER_STATE_DISCONNECT_LATER, _ENetPeerState_ENET_PEER_STATE_DISCONNECTED,
-    _ENetPeerState_ENET_PEER_STATE_DISCONNECTING, _ENetPeerState_ENET_PEER_STATE_ZOMBIE, ENetPeer,
+    _ENetPeerState_ENET_PEER_STATE_DISCONNECTED, _ENetPeerState_ENET_PEER_STATE_DISCONNECTING,
+    _ENetPeerState_ENET_PEER_STATE_DISCONNECT_LATER, _ENetPeerState_ENET_PEER_STATE_ZOMBIE,
     enet_packet_destroy, enet_peer_disconnect, enet_peer_disconnect_later,
-    enet_peer_disconnect_now, enet_peer_receive, enet_peer_reset, enet_peer_send,
+    enet_peer_disconnect_now, enet_peer_ping_interval, enet_peer_receive, enet_peer_reset,
+    enet_peer_send,
 };
 
 use crate::{Address, Error, Packet};
@@ -190,6 +191,13 @@ where
     pub fn reset(&mut self) {
         unsafe {
             enet_peer_reset(&mut self.inner as *mut _);
+        }
+    }
+
+    /// Set the ping interval of this `Peer`
+    pub fn set_ping_interval(&mut self, duration: Duration) {
+        unsafe {
+            enet_peer_ping_interval(&mut self.inner as *mut _, duration.as_millis() as u32);
         }
     }
 

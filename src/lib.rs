@@ -43,8 +43,8 @@ extern crate lazy_static;
 use std::{
     os::raw::c_int,
     sync::{
-        Arc,
         atomic::{AtomicUsize, Ordering},
+        Arc,
     },
 };
 
