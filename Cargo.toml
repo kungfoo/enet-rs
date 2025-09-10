@@ -23,7 +23,7 @@ exclude = [
 maintenance = { status = "passively-maintained" }
 
 [dependencies]
-enet-sys = { git = "https://github.com/kungfoo/enet-sys.git", version = "1.0.4" }
+enet-sys = { git = "https://github.com/kungfoo/enet-sys.git", version = "1.0.5" }
 thiserror = "1.0.30"
 
 [dev-dependencies]
